@@ -1,0 +1,3 @@
+*.test.ipynb # ignore test notebooks
+*test.ipynb # ignore test notebooks
+**/__pycache__/ # ignore python cache in all subdirectories
