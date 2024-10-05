@@ -1,3 +1,6 @@
+"""
+本文件定义了一些工具函数，包括训练模型、绘图等，将一些复用次数多的代码封装在函数内，方便调用。
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -96,11 +99,21 @@ def plot_fit_history(fit_history, save_path=None):
 
 
 def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
-                    iii=6
+                    iii=6,
+                    figsize=(16,12)
                     ):
     '''
-    Y_predicted=Y_predicted.reshape(-1,output_channels)
-    Y_to_predict=Y_to_predict.reshape(-1,output_channels)
+    Plot the predictions of the model on a given mat file.
+    Parameters:
+    - MODEL: torch.nn.Module, the trained model
+    - X_grouped: list of (list of (input_length,len(var_names)) numpy array), the input data grouped by mat file
+    - Y_grouped: list of (list of (output_length,len(var_names)) numpy array), the output data grouped by mat file
+    - var_names: list of strings, the names of the variables
+    - mat_paths: list of strings, the paths of the mat files
+    - iii: int, the index of the mat file to be plotted
+    - figsize: tuple of int, the size of the figure
+    Return:
+    - None
     '''
     # iii=43 # 要在某个mat文件上做预测,选中mat编号(iii)（建议落在测试集对应的编号范围内）
 
@@ -122,7 +135,7 @@ def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
     Y_to_predict_flatten=Y_to_predict.reshape(-1,output_channels)
     loss=np.mean((Y_predicted_flatten-Y_to_predict_flatten)**2) # 计算预测误差
 
-    plt.figure(figsize=(16,12))
+    plt.figure(figsize=figsize) # figsize is specified in the function parameter
     plt.suptitle('Time Series Prediction on {}\n Loss: {:.4f}'.format(mat_paths[iii][-30:], loss))
     for var_name in var_names:
         var_idx=var_names.index(var_name)

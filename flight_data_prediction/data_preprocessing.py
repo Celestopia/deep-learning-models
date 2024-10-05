@@ -1,10 +1,16 @@
+"""
+本文件定义了几个用于数据预处理的操作，包括获取mat文件路径、读取mat文件并返回numpy数组、由数组获取dataloader等。
+"""
 import numpy as np
 import os
 from torch.utils.data import Dataset, DataLoader
 
 
-def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"): # 获取所有mat路径
+
+def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"):
     '''
+    Get the paths of all.mat files in the given directory.
+
     Parameters:
     - data_dir: str. 数据集所在文件夹路径
     Return:
@@ -40,29 +46,30 @@ def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"): # 获取所有mat�
              mat_paths.append(os.path.join(folder_path,mat_name))
     return mat_paths
 
+
+
 def get_XY(mat_paths, input_len, output_len,
             var_names=['ALT', 'ALTR', "TAS", 'GS', 'AOA1', 'AOA2', 'PTCH', 'WS', "WD", 'SAT', 'TAT', 'PI', 'PT'],
             indices=[i for i in range(0,100)],
             verbose=1
-            ): # 获取数据集numpy数组
+            ):
     '''
+    Get organized dataset X, Y and grouped dataset X_grouped, Y_grouped (numpy arrays) from mat files.
+
     Parameters:
-    - mat_paths: list of str.
-    - input_len: int. Input sequence length.
-    - output_len: int. Output sequence length.
-    - var_names: list of str. Variable names.
+    - mat_paths: list of str. 所有mat文件的路径构成的列表
+    - input_len: int. Input sequence length. 输入序列长度
+    - output_len: int. Output sequence length. 输出序列长度
+    - var_names: list of str. Variable names. 要处理的变量，即实际用到的变量
     - indices: list of int. Indices of mat files to be used.
     - verbose: int.
 
     Return:
     - X: np.ndarray. shape=(N, input_len, len(var_names))
     - Y: np.ndarray. shape=(N, output_len, len(var_names))
-
-    mat_paths: list of str. 所有mat文件的路径构成的列表
-    input_len: int. 输入序列长度
-    output_len: int. 输出序列长度
-    var_names: list of str. 要处理的变量，即实际用到的变量
-
+    - X_grouped: list of (list of (input_length,len(var_names)) numpy array).
+    - Y_grouped: list of (list of (output_length,len(var_names)) numpy array).
+ 
     可能用到的变量：
     WS: WIND SPEED
     TAS: TRUE AIRSPEED LSP
@@ -108,10 +115,6 @@ def get_XY(mat_paths, input_len, output_len,
         if verbose==1 and count%10==0:
             print(f'GenerateX: {count}th mat completed.')
     # DATA: list of numpy arrays of shape (mat_data_len, len(var_names))
-    if verbose==1:
-        print('len(DATA): ', len(DATA))
-        print('DATA[0].shape: ', DATA[0].shape)
-
     '''
     标准归一化
     '''
@@ -162,7 +165,7 @@ def get_XY(mat_paths, input_len, output_len,
         print('len(X_grouped):', len(X_grouped))
         print('len(Y_grouped):', len(Y_grouped))
 
-    # 构建数据集（numpy）
+    # Construct data set (in numpy arrays)
     X=[]
     Y=[]
     for X_i in X_grouped:
@@ -183,20 +186,22 @@ def get_XY(mat_paths, input_len, output_len,
 def get_XY_loaders(X, Y,
                     batch_size=32,
                     verbose=1
-                    ): # 构建数据集loader
+                    ):
     '''
+    Get data loaders for training, validation, and testing, from dataset in np.ndarray format.
+
     Parameters:
     - X: numpy array. Shape: (num_samples, input_len, input_channels)
     - Y: numpy array. Shape: (num_samples, output_len, output_channels)
     - batch_size: int.
-    - verbose: int.
+    - verbose: int. Whether to print messages. If 1, print messages.
     Return:
     - train_loader, val_loader, test_loader
     '''
-    assert X.shape[0]==Y.shape[0]
+    assert X.shape[0]==Y.shape[0], 'X and Y must have the same amountof samples.'
     import random
 
-    # 自定义数据集类
+    # Customized dataset class # 自定义数据集类
     class TimeSeriesDataset(Dataset):
         def __init__(self, X, Y):
             self.X = X # shape: (num_samples, input_len, input_channels)
@@ -249,6 +254,9 @@ def get_XY_loaders(X, Y,
     return train_loader, val_loader, test_loader
 
 
+#----------------------------------------------------------------------------------------------------------------------
+
+# 测试中，不完善
 def get_XY_with_positional_encoding(mat_paths, input_len, output_len,
             var_names=['ALT', 'ALTR', "TAS", 'GS', 'AOA1', 'AOA2', 'PTCH', 'WS', "WD", 'SAT', 'TAT', 'PI', 'PT'],
             indices=[i for i in range(0,100)],
@@ -426,6 +434,7 @@ def get_XY_with_positional_encoding(mat_paths, input_len, output_len,
     return X, Y, X_mark, Y_mark, X_grouped, Y_grouped, X_mark_grouped, Y_mark_grouped
 
 
+# 测试中，不完善
 def get_XY_loaders_with_positional_encoding(X, Y, X_mark, Y_mark, 
                     batch_size=32,
                     verbose=1

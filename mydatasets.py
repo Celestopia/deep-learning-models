@@ -1,3 +1,8 @@
+"""
+本文件提供了生成随机多元时间序列数据集的函数load_test_data()
+仅供测试用
+"""
+
 import numpy as np
 # 生成随机多元时间序列数据集
 def load_test_data(id='0', input_dim=(1000,64,8), output_dim=(1000,16,4), noise=0.3, **kwargs):
@@ -77,20 +82,26 @@ def get_XY_loaders(X, Y,
                     ):
     '''
     Get data loaders for training, validation, and testing.
-    X: (num_samples, input_len, input_channels)
-    Y: (num_samples, output_len, output_channels)
-    type(X): numpy.ndarray
-    type(Y): numpy.ndarray
+    Parameters:
+    - X: np.ndarray, shape: (num_samples, input_len, input_channels)
+    - Y: np.ndarray, shape: (num_samples, output_len, output_channels)
+    - batch_size: batch size for data loaders
+    - train_ratio: ratio of training set
+    - val_ratio: ratio of validation set
+    - test_ratio: ratio of testing set
+    - verbose: whether to print dataset sizes
+    Returns:
+    - train_loader: data loader for training set
+    - val_loader: data loader for validation set
+    - test_loader: data loader for testing set
     '''
-    import random
-    from torch.utils.data import DataLoader, Dataset
-
-    assert type(X)==np.ndarray and type(Y)==np.ndarray
-    assert X.shape[0]==Y.shape[0]
-    assert X.ndim==3 and Y.ndim==3
+    assert type(X)==np.ndarray and type(Y)==np.ndarray, "X and Y should be numpy arrays"
+    assert X.shape[0]==Y.shape[0], "X and Y should have the same number of samples"
+    assert X.ndim==3 and Y.ndim==3, "X and Y should have 3 dimensions (num_samples, time_steps, num_features)"
     assert train_ratio+val_ratio+test_ratio<=1.0
 
     # 自定义数据集类
+    from torch.utils.data import DataLoader, Dataset
     class TimeSeriesDataset(Dataset):
         def __init__(self, X, Y):
             self.X = X # shape: (num_samples, input_len, input_channels)
@@ -119,6 +130,7 @@ def get_XY_loaders(X, Y,
     num_test=int(test_ratio*num_samples)
     assert num_train+num_val+num_test<=num_samples
     indices=list(range(num_samples))
+    import random
     random.shuffle(indices)
     train_indices=indices[:num_train]
     val_indices=indices[num_train:num_train+num_val]
