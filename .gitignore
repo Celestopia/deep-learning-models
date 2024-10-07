@@ -1,4 +1,3 @@
 *.ipynb # ignore test notebooks
 **/__pycache__/ # ignore python cache in all subdirectories
-./flight_data_prediction/ # ignore flight data prediction directory
 !example.ipynb

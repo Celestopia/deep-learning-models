@@ -1,5 +1,5 @@
 > 目前所有模型均能跑，但代码复用性仍待提升，注释仍待补充。
-
+> scripts目录下有一些运行实例
 
 # deep-learning-models
 Data-driven time series prediction models for personal study.
