@@ -1,3 +1,6 @@
+'''
+这个文件暂时没用
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -9,8 +12,8 @@ import tqdm
 def train(MODEL, train_loader, val_loader, optimizer,
             loss_func=nn.MSELoss(),
             metric_func=nn.L1Loss(),
-            num_epochs=10
-            # device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            num_epochs=10,
+            device='cpu'
             ):
     # 训练模型
     fit_history=[]
@@ -23,6 +26,7 @@ def train(MODEL, train_loader, val_loader, optimizer,
         # 训练
         MODEL.train() # 切换到训练模式
         for inputs, targets in train_loader: # 分批次遍历训练集
+            inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
             optimizer.zero_grad() # 清空梯度
             outputs = MODEL(inputs)
             loss = loss_func(outputs, targets)
@@ -36,6 +40,7 @@ def train(MODEL, train_loader, val_loader, optimizer,
         MODEL.eval() # 切换到验证模式
         with torch.no_grad(): # 关闭梯度计算
             for inputs, targets in val_loader: # 分批次遍历验证集
+                inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
                 outputs = MODEL(inputs)
                 loss = loss_func(outputs, targets)
                 metric=metric_func(outputs, targets)
@@ -86,28 +91,3 @@ def plot_fit_history(fit_history, save_path=None):
     if save_path is not None:
         plt.savefig(save_path, dpi=300) # 保存图片
     plt.show()
-
-
-class StandardScaler:
-    '''
-    Standardize the input along the specified axis.
-    e.g. axis=0 means the mean and variance are calculated along the first dimension of the input.
-    '''
-    def __init__(self, axis):
-        self.mean = None
-        self.std = None
-        self.axis = axis
-
-    def fit(self, X):
-        self.mean = np.mean(X, axis=self.axis)
-        self.std = np.std(X, axis=self.axis)
-
-    def transform(self, X):
-        mean_mat=np.stack([np.mean(X, axis=self.axis) for _ in range(X.shape[self.axis])],axis=self.axis)
-        std_mat=np.stack([np.std(X, axis=self.axis) for _ in range(X.shape[self.axis])],axis=self.axis)
-        return (X - mean_mat) / std_mat
-
-    def inverse_transform(self, X):
-        mean_mat=np.stack([np.mean(X, axis=self.axis) for _ in range(X.shape[self.axis])],axis=self.axis)
-        std_mat=np.stack([np.std(X, axis=self.axis) for _ in range(X.shape[self.axis])],axis=self.axis)
-        return X*std_mat+mean_mat

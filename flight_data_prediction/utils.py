@@ -9,98 +9,220 @@ import time
 import tqdm
 
 
+class FitHistory:
+    '''
+    Fit history class to record the training history of a model.
+    '''
+    def __init__(self):
+        self.num_epochs=0
+        self.epoch_time=[]
+        self.train_loss=[]
+        self.train_metric=[]
+        self.val_loss=[]
+        self.val_metric=[]
+        self.metadata=None # 用于保存额外信息
+
+    def update(self, epoch_time, train_loss, train_metric, val_loss, val_metric):
+        '''
+        Parameters:
+        - epoch_time: list. The time of training each epoch.
+        - train_loss: list. The loss of training each epoch.
+        - train_metric: list. The metric of training each epoch.
+        - val_loss: list. The loss of validation each epoch.
+        - val_metric: list. The metric of validation each epoch.
+        '''
+        self.num_epochs+=len(epoch_time)
+        self.epoch_time.extend(epoch_time)
+        self.train_loss.extend(train_loss)
+        self.train_metric.extend(train_metric)
+        self.val_loss.extend(val_loss)
+        self.val_metric.extend(val_metric)
+
+    def plot(self, figsize=(8,4)):
+        plt.figure(figsize=figsize)
+        plt.subplot(1, 2, 1)
+        plt.plot(self.train_loss, label='train_loss')
+        plt.plot(self.val_loss, label='val_loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(self.train_metric, label='train_metric')
+        plt.plot(self.val_metric, label='val_metric')
+        plt.xlabel('Epochs')
+        plt.ylabel('Metric')
+        plt.suptitle("Training History")
+        plt.legend()
+        plt.tight_layout() # 调整子图间距，防止重叠
+        # plt.savefig(save_path, dpi=300, bbox_inches='tight') # 保存图片
+        plt.show()
+    
+    def summary(self):
+        print(f'Number of epochs:  {self.num_epochs}')
+        print(f'Training time:     {np.sum(self.epoch_time):.4f}s')
+        print(f'Training loss:     {self.train_loss[-1]:.4f}')
+        print(f'Training metric:   {self.train_metric[-1]:.4f}')
+        print(f'Validation loss:   {self.val_loss[-1]:.4f}')
+        print(f'Validation metric: {self.val_metric[-1]:.4f}')
+
+
 def train(MODEL, train_loader, val_loader, optimizer,
             loss_func=nn.MSELoss(),
             metric_func=nn.L1Loss(),
-            num_epochs=10
-            # device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            num_epochs=10,
+            device='cpu',
+            verbose=1
             ):
-    # 训练模型
-    fit_history=[]
-    total_time=0.0 # 总训练时间
-    for epoch in tqdm.tqdm(range(num_epochs)):
-        t1=time.time() # 该轮开始时间
-        train_loss, train_metric = 0.0, 0.0 # 本轮的训练loss和metric
-        val_loss, val_metric = 0.0, 0.0 # 本轮的验证loss和metric
+    if not hasattr(MODEL, 'label_len'): # 如果模型不含有label_len属性，说明前向传播过程不需要解码器输入
+        epoch_time_list=[]
+        train_loss_list=[]
+        train_metric_list=[]
+        val_loss_list=[]
+        val_metric_list=[]
+        total_time=0.0 # 总训练时间
 
-        # 训练
-        MODEL.train() # 切换到训练模式
-        for inputs, targets in train_loader: # 分批次遍历训练集
-            optimizer.zero_grad() # 清空梯度
-            outputs = MODEL(inputs)
-            loss = loss_func(outputs, targets)
-            metric = metric_func(outputs, targets)
-            loss.backward() # 反向传播
-            optimizer.step() # 更新权重
-            train_loss+=loss.item()
-            train_metric+=metric.item()
+        for epoch in tqdm.tqdm(range(num_epochs)):
+            t1=time.time() # 该轮开始时间
+            train_loss, train_metric = 0.0, 0.0 # 本轮的训练loss和metric
+            val_loss, val_metric = 0.0, 0.0 # 本轮的验证loss和metric
 
-        # 验证
-        MODEL.eval() # 切换到验证模式
-        with torch.no_grad(): # 关闭梯度计算
-            for inputs, targets in val_loader: # 分批次遍历验证集
+            # 训练
+            MODEL.train() # 切换到训练模式
+            for inputs, targets in train_loader: # 分批次遍历训练集
+                inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
+                optimizer.zero_grad() # 清空梯度
                 outputs = MODEL(inputs)
                 loss = loss_func(outputs, targets)
-                metric=metric_func(outputs, targets)
-                val_loss+=loss.item()
-                val_metric+=metric.item()
+                metric = metric_func(outputs, targets)
+                loss.backward() # 反向传播
+                optimizer.step() # 更新权重
+                train_loss+=loss.item()
+                train_metric+=metric.item()
 
-        # 计算各指标的平均值
-        average_train_loss=train_loss/len(train_loader) # 本轮的平均训练loss
-        average_train_metric=train_metric/len(train_loader) # 本轮的平均训练metric
-        average_val_loss=val_loss/len(val_loader) # 本轮的平均验证loss
-        average_val_metric=val_metric/len(val_loader) # 本轮的平均验证metric
+            # 验证
+            MODEL.eval() # 切换到验证模式
+            with torch.no_grad(): # 关闭梯度计算
+                for inputs, targets in val_loader: # 分批次遍历验证集
+                    inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
+                    outputs = MODEL(inputs)
+                    loss = loss_func(outputs, targets)
+                    metric=metric_func(outputs, targets)
+                    val_loss+=loss.item()
+                    val_metric+=metric.item()
 
-        # 记录本轮各指标值
-        fit_history.append((average_train_loss, average_train_metric, average_val_loss, average_val_metric))
+            # 计算各指标的平均值
+            average_train_loss=train_loss/len(train_loader) # 本轮的平均训练loss
+            average_train_metric=train_metric/len(train_loader) # 本轮的平均训练metric
+            average_val_loss=val_loss/len(val_loader) # 本轮的平均验证loss
+            average_val_metric=val_metric/len(val_loader) # 本轮的平均验证metric
 
-        t2=time.time() # 该轮结束时间
-        total_time+=(t2-t1) # 累计训练时间
+            # 计算训练用时
+            t2=time.time() # 该轮结束时间
+            total_time+=(t2-t1) # 累计训练时间
 
-        # 输出过程信息
-        message=f'Epoch [{str(epoch + 1).center(4, " ")}/{num_epochs}], Time: {(t2-t1):.4f}s'
-        message+=f', Loss: {average_train_loss:.4f}'
-        message+=f', Metric: {average_train_metric:.4f}'
-        message+=f', Val Loss: {average_val_loss:.4f}'
-        message+=f', Val Metric: {average_val_metric:.4f}'
-        print(message)
-    print(f'Total Time: {total_time:.4f}s')
-    return np.array(fit_history) # shape: (num_epochs, 4)
+            # 记录本轮各指标值
+            epoch_time_list.append(t2-t1)
+            train_loss_list.append(average_train_loss)
+            train_metric_list.append(average_train_metric)
+            val_loss_list.append(average_val_loss)
+            val_metric_list.append(average_val_metric)
 
+            # 输出过程信息
+            if verbose==1:
+                message =f'Epoch [{str(epoch + 1).center(4, " ")}/{num_epochs}], Time: {(t2-t1):.4f}s'
+                message+=f', Loss: {average_train_loss:.4f}'
+                message+=f', Metric: {average_train_metric:.4f}'
+                message+=f', Val Loss: {average_val_loss:.4f}'
+                message+=f', Val Metric: {average_val_metric:.4f}'
+                print(message)
+        print(f'Total Time: {total_time:.4f}s')
 
-def plot_fit_history(fit_history, save_path=None):
-    '''
-    Parameters:
-    - fit_history: numpy array, shape: (num_epochs, 4)
-    Return:
-    - None
-    '''
-    assert isinstance(fit_history, np.ndarray), "fit_history should be a numpy array"
-    assert fit_history.ndim == 2, "fit_history should have 2 axes"
-    assert fit_history.shape[1] == 4, "fit_history should have 4 columns"
-    plt.figure(figsize=(8, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(fit_history[:,0], label='train_loss')
-    plt.plot(fit_history[:,2], label='val_loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
+        return (epoch_time_list, train_loss_list, train_metric_list, val_loss_list, val_metric_list)
 
-    plt.subplot(1, 2, 2)
-    plt.plot(fit_history[:,1], label='train_metric')
-    plt.plot(fit_history[:,3], label='val_metric')
-    plt.xlabel('Epochs')
-    plt.ylabel('Metric')
-    plt.suptitle("Training History")
-    plt.legend()
-    plt.tight_layout() # 调整子图间距，防止重叠
-    # plt.savefig(save_path, dpi=300, bbox_inches='tight') # 保存图片
-    plt.show()
+    elif hasattr(MODEL, 'label_len') and MODEL.label_len > 0: # 如果模型含有label_len属性，说明前向传播过程需要解码器输入，训练过程考虑label
+        label_len=MODEL.label_len
+        output_len=MODEL.output_len
+        pred_len=output_len-label_len
+
+        epoch_time_list=[]
+        train_loss_list=[]
+        train_metric_list=[]
+        val_loss_list=[]
+        val_metric_list=[]
+        total_time=0.0 # 总训练时间
+
+        for epoch in tqdm.tqdm(range(num_epochs)):
+            t1 = time.time() # 该轮开始时间
+            train_loss, train_metric = 0.0, 0.0 # 本轮的训练loss和metric
+            val_loss, val_metric = 0.0, 0.0 # 本轮的验证loss和metric
+
+            # 训练
+            MODEL.train() # 切换到训练模式
+            for inputs, targets in train_loader:
+                inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
+                optimizer.zero_grad() # 清空梯度
+                # decoder input
+                dec_inp = torch.zeros_like(targets[:, -pred_len:, :]).float().to(device)
+                dec_inp = torch.cat([targets[:, :label_len, :], dec_inp], dim=1).float().to(device)
+                # encoder - decoder
+                outputs = MODEL(inputs, dec_inp)
+                outputs = outputs[:, -pred_len:, :].to(device) # 取待预测时间范围内的数据
+                targets = targets[:, -pred_len:, :].to(device) # 取待预测时间范围内的数据
+                loss = loss_func(outputs, targets)
+                metric = metric_func(outputs, targets)
+                loss.backward()
+                optimizer.step()
+                train_loss+=loss.item()
+                train_metric+=metric.item()
+            
+            # 验证
+            MODEL.eval() # 切换到验证模式
+            with torch.no_grad():
+                for inputs, targets in val_loader:
+                    inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
+                    dec_inp = torch.zeros_like(targets[:, -pred_len:, :]).float().to(device)
+                    dec_inp = torch.cat([targets[:, :label_len, :], dec_inp], dim=1).float().to(device)
+                    outputs = MODEL(inputs, dec_inp)
+                    outputs = outputs[:, -pred_len:, :].to(device) # 取待预测时间范围内的数据
+                    targets = targets[:, -pred_len:, :].to(device) # 取待预测时间范围内的数据
+                    loss = loss_func(outputs, targets)
+                    metric = metric_func(outputs, targets)
+                    val_loss+=loss.item()
+                    val_metric+=metric.item()
+            average_train_loss=train_loss/len(train_loader)
+            average_train_metric=train_metric/len(train_loader)
+            average_val_loss=val_loss/len(val_loader)
+            average_val_metric=val_metric/len(val_loader)
+
+            # 计算训练用时
+            t2=time.time()
+            total_time+=(t2-t1)
+
+            # 记录本轮各指标值
+            epoch_time_list.append(t2-t1)
+            train_loss_list.append(average_train_loss)
+            train_metric_list.append(average_train_metric)
+            val_loss_list.append(average_val_loss)
+            val_metric_list.append(average_val_metric)
+            
+            # 输出过程信息
+            if verbose==1:
+                message =f'Epoch [{str(epoch + 1).center(4, " ")}/{num_epochs}], Time: {(t2-t1):.4f}s'
+                message+=f', Loss: {average_train_loss:.4f}'
+                message+=f', Metric: {average_train_metric:.4f}'
+                message+=f', Val Loss: {average_val_loss:.4f}'
+                message+=f', Val Metric: {average_val_metric:.4f}'
+                print(message)
+        print(f'Total Time: {total_time:.4f}s')
+
+        return (epoch_time_list, train_loss_list, train_metric_list, val_loss_list, val_metric_list)
 
 
 def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
                     iii=6,
-                    figsize=(16,12)
+                    figsize=(16,12),
+                    device='cpu'
                     ):
     '''
     Plot the predictions of the model on a given mat file.
@@ -128,7 +250,16 @@ def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
         Y_to_predict.append(Y_grouped[iii][i])
     Y_to_predict=np.array(Y_to_predict) # Y_to_predict: numpy array. Shape: (num_batches, output_len, output_channels):
 
-    Y_predicted=MODEL(torch.Tensor(X_to_predict)).detach().numpy() # 根据X_to_predict预测到的数据
+    if hasattr(MODEL, 'label_len') and MODEL.label_len > 0: # 如果模型含有label_len属性，说明前向传播过程需要解码器输入
+        label_len=MODEL.label_len
+        output_len=MODEL.output_len
+        pred_len=output_len-label_len
+        dec_inp = torch.zeros_like(torch.Tensor(Y_to_predict[:, -pred_len:, :])).float().to(device)
+        dec_inp = torch.cat([torch.Tensor(Y_to_predict[:, :label_len, :]).to(device), dec_inp], dim=1).float().to(device)
+        Y_to_predict=Y_to_predict[:, -pred_len:, :] # 取待预测时间范围内的数据
+        Y_predicted=MODEL(torch.Tensor(X_to_predict).to(device), dec_inp).cpu().detach().numpy() # 根据X_to_predict预测到的数据
+    else: # 如果模型不含有label_len属性，说明前向传播过程不需要解码器输入
+        Y_predicted=MODEL(torch.Tensor(X_to_predict).to(device)).cpu().detach().numpy() # 根据X_to_predict预测到的数据
 
     output_channels=Y_predicted.shape[2]
     Y_predicted_flatten=Y_predicted.reshape(-1,output_channels)
@@ -148,25 +279,5 @@ def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
     #plt.savefig("", bbox_inches='tight')
     plt.show()
 
-'''
-def plot_BNN_predictions(Y_mean, Y_std, Y_to_predict, var_names, mat_paths, iii, output_channels):
-    Y_mean=Y_mean.reshape(-1,output_channels)
-    Y_std=Y_std.reshape(-1,output_channels)
-    Y_to_predict=Y_to_predict.reshape(-1,output_channels)
 
 
-    plt.figure(figsize=(16,12))
-    plt.suptitle('Time Series Prediction on {}'.format(mat_paths[iii][-30:]))
-    for var_name in var_names:
-        var_idx=var_names.index(var_name)
-        plt.subplot(4, 4, var_idx+1)
-        plt.plot(range(Y_to_predict[:,var_idx].shape[0]), Y_mean[:,var_idx])
-        plt.fill_between(range(Y_to_predict[:,var_idx].shape[0]), Y_mean[:,var_idx]-Y_std[:,var_idx], Y_mean[:,var_idx]+Y_std[:,var_idx], alpha=0.2)
-        plt.scatter(range(Y_to_predict[:,var_idx].shape[0]), Y_to_predict[:,var_idx], s=1.5)
-
-        plt.legend(['predict', 'uncertainty', 'true'], loc='upper right')
-        plt.title(var_name)
-    plt.tight_layout(h_pad=2)
-    #plt.savefig("D:\\_SRT\\Dataset\\Result\\20240321\\CNN_prediction_fig1.png", bbox_inches='tight')
-    plt.show()
-'''

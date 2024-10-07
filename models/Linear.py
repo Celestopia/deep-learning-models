@@ -15,10 +15,6 @@ class LLinear(TimeSeriesNN):
                 ):
         assert input_channels == output_channels, "input_channels should be equal to output_channels"
         super(LLinear, self).__init__(input_len, output_len, input_channels, output_channels)
-        self.input_len = input_len
-        self.output_len = output_len
-        self.input_channels = input_channels
-        self.output_channels = output_channels
         self.individual = individual
 
         if self.individual:
@@ -53,10 +49,6 @@ class NLinear(TimeSeriesNN):
                 ):
         assert input_channels == output_channels, "input_channels should be equal to output_channels"
         super(NLinear, self).__init__(input_len, output_len, input_channels, output_channels)
-        self.input_len = input_len
-        self.output_len = output_len
-        self.input_channels = input_channels
-        self.output_channels = output_channels
         self.individual = individual
         if self.individual:
             self.Linear = nn.ModuleList()
@@ -85,19 +77,12 @@ class DLinear(TimeSeriesNN):
     Source: https://github.com/cure-lab/LTSF-Linear/blob/main/models/Linear.py; Modified afterwards.
     Note that input_channels == output_channels
     """
-    def __init__(self, input_len, output_len, input_channels, output_channels,
-                individual=False, # Whether to use individual Linear layers for each channel
-                kernel_size=25 # Decompsition Kernel Size
-                ):
-        assert input_channels == output_channels, "input_channels should be equal to output_channels"
-        super(DLinear, self).__init__(input_len, output_len, input_channels, output_channels)
-
-        class moving_avg(nn.Module):
+    class moving_avg(nn.Module):
             """
             Moving average block to highlight the trend of time series
             """
             def __init__(self, kernel_size, stride):
-                super(moving_avg, self).__init__()
+                super(DLinear.moving_avg, self).__init__()
                 self.kernel_size = kernel_size
                 self.avg = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
 
@@ -110,25 +95,27 @@ class DLinear(TimeSeriesNN):
                 x = x.permute(0, 2, 1)
                 return x
 
-        class series_decomp(nn.Module):
-            """
-            Series decomposition block
-            """
-            def __init__(self, kernel_size):
-                super(series_decomp, self).__init__()
-                self.moving_avg = moving_avg(kernel_size, stride=1)
+    class series_decomp(nn.Module):
+        """
+        Series decomposition block
+        """
+        def __init__(self, kernel_size):
+            super(DLinear.series_decomp, self).__init__()
+            self.moving_avg = DLinear.moving_avg(kernel_size, stride=1)
 
-            def forward(self, x):
-                moving_mean = self.moving_avg(x)
-                res = x - moving_mean
-                return res, moving_mean
-        
-        self.input_len = input_len
-        self.output_len = output_len
-        self.input_channels = input_channels
-        self.output_channels = output_channels
+        def forward(self, x):
+            moving_mean = self.moving_avg(x)
+            res = x - moving_mean
+            return res, moving_mean
+
+    def __init__(self, input_len, output_len, input_channels, output_channels,
+                individual=False, # Whether to use individual Linear layers for each channel
+                kernel_size=25 # Decompsition Kernel Size
+                ):
+        assert input_channels == output_channels, "input_channels should be equal to output_channels"
+        super(DLinear, self).__init__(input_len, output_len, input_channels, output_channels)
         self.individual = individual
-        self.decompsition = series_decomp(kernel_size)
+        self.decompsition = DLinear.series_decomp(kernel_size)
 
         if self.individual:
             self.Linear_Seasonal = nn.ModuleList()

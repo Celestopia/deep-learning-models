@@ -23,7 +23,8 @@ class TimeSeriesNN(nn.Module):
     # evaluate the model on a given dataset
     def evaluate(self, data,
                 loss=nn.functional.mse_loss,
-                mode='data_loader'
+                mode='data_loader',
+                device='cpu'
                 ):
         if mode == 'numpy': # If mode is 'numpy', data should be a tuple of numpy arrays
             '''
@@ -54,6 +55,7 @@ class TimeSeriesNN(nn.Module):
             total_loss = 0.0
             with torch.no_grad():
                 for inputs, targets in tqdm.tqdm(data_loader):
+                    inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
                     outputs = self(inputs)
                     total_loss += loss(outputs, targets).item() * inputs.size(0)
             return total_loss / len(data_loader.dataset)

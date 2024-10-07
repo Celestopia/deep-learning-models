@@ -7,9 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 
 
 
-def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"):
+def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"): # You may substitute the data_dir with your own directory
     '''
-    Get the paths of all.mat files in the given directory.
+    Get the paths of all .mat files in the given directory.
 
     Parameters:
     - data_dir: str. 数据集所在文件夹路径
@@ -49,6 +49,7 @@ def get_mat_paths(data_dir="D:\\SRT_Dataset\\Data_Download"):
 
 
 def get_XY(mat_paths, input_len, output_len,
+            label_len=0,
             var_names=['ALT', 'ALTR', "TAS", 'GS', 'AOA1', 'AOA2', 'PTCH', 'WS', "WD", 'SAT', 'TAT', 'PI', 'PT'],
             indices=[i for i in range(0,100)],
             verbose=1
@@ -60,6 +61,7 @@ def get_XY(mat_paths, input_len, output_len,
     - mat_paths: list of str. 所有mat文件的路径构成的列表
     - input_len: int. Input sequence length. 输入序列长度
     - output_len: int. Output sequence length. 输出序列长度
+    - label_len: int. Label (start token) sequence length. 标签序列长度，即解码器启动序列的长度。默认为0，即不使用标签，此时输入序列与目标序列在时间轴上无重合。
     - var_names: list of str. Variable names. 要处理的变量，即实际用到的变量
     - indices: list of int. Indices of mat files to be used.
     - verbose: int.
@@ -89,6 +91,9 @@ def get_XY(mat_paths, input_len, output_len,
     ALT: PRESSURE ALTITUDE LSP
     ALTR: ALTITUDE RATE
     '''
+    assert label_len <= input_len, "label_len should be less than or equal to input_len"
+    assert label_len < output_len, "label_len should be less than output_len"
+    pred_len = output_len - label_len # Prediction sequence length # Note that when label_len==0, pred_len==output_len
 
     import scipy.io
     #var_names=['WS','WD','TAS', 'ALTR'] # 要处理的变量
@@ -148,16 +153,25 @@ def get_XY(mat_paths, input_len, output_len,
     '''
     根据采样出的数据库构建用于训练的数据集
     X_grouped: list of(list of (input_length,len(var_names)) numpy array).
+
+                     |<----------input_len------------------->|
+    Input sequence:  ├────────────────────────────────────────┤
+    Label sequence:                          ├────────────────┤
+    Target sequence:                         ├───────────────────────────────────────────────┤
+                                             |<--label_len--->|<----------pred_len---------->|
+                                             |<-----------------output_len------------------>|
+    Time axis------------------------------------------------------------------------------------------->
     '''
+    
     X_grouped=[]
     Y_grouped=[]
     for DATA_i in DATA: # DATA_i: numpy array. Shape: (mat_data_len, len(var_names))
-        DATA_i_length=DATA_i.shape[0]
+        DATA_i_length=DATA_i.shape[0] # The (time series) length of the current mat data
         X_i=[]
         Y_i=[]
-        for i in range(0, DATA_i_length-input_len-output_len, output_len):
+        for i in range(0, DATA_i_length-input_len-pred_len, pred_len):
             X_i.append(DATA_i[i:i+input_len,:])
-            Y_i.append(DATA_i[i+input_len:i+input_len+output_len,:])
+            Y_i.append(DATA_i[i+input_len-label_len:i+input_len+pred_len,:]) # When label_len==0, X_i and Y_i don't intersect, and pred_len==output_len
         X_grouped.append(X_i)
         Y_grouped.append(Y_i)
 
@@ -165,7 +179,7 @@ def get_XY(mat_paths, input_len, output_len,
         print('len(X_grouped):', len(X_grouped))
         print('len(Y_grouped):', len(Y_grouped))
 
-    # Construct data set (in numpy arrays)
+    # Part each time series into subseries with equal shape, in convenience of neural network training.
     X=[]
     Y=[]
     for X_i in X_grouped:
@@ -174,9 +188,9 @@ def get_XY(mat_paths, input_len, output_len,
     for Y_i in Y_grouped:
         for Y_ij in Y_i:
             Y.append(Y_ij)
-    X=np.array(X).astype("float32")
-    Y=np.array(Y).astype("float32")
-
+    X=np.array(X).astype("float32") # X shape: (num_samples, input_len, len(var_names))
+    Y=np.array(Y).astype("float32") # Y shape: (num_samples, output_len, len(var_names))
+    
     if verbose==1:
         print('X shape: ', X.shape)
         print('Y shape: ', Y.shape)
@@ -198,8 +212,8 @@ def get_XY_loaders(X, Y,
     Return:
     - train_loader, val_loader, test_loader
     '''
-    assert X.shape[0]==Y.shape[0], 'X and Y must have the same amountof samples.'
-    import random
+    assert type(X)==np.ndarray and type(Y)==np.ndarray, 'X and Y must be numpy arrays.'
+    assert X.shape[0]==Y.shape[0], 'X and Y must have the same amount of samples.'
 
     # Customized dataset class # 自定义数据集类
     class TimeSeriesDataset(Dataset):
@@ -216,7 +230,6 @@ def get_XY_loaders(X, Y,
     # 构建数据集
     X,Y=X.astype("float32"), Y.astype("float32")
     num_samples=X.shape[0]
-
     input_len=X.shape[1]
     input_channels=X.shape[2]
     output_len=Y.shape[1]
@@ -234,6 +247,7 @@ def get_XY_loaders(X, Y,
 
     # 随机打乱数据集
     indices=list(range(num_samples))
+    import random
     random.shuffle(indices)
     train_indices=indices[:num_train]
     val_indices=indices[num_train:num_train+num_val]
@@ -246,6 +260,7 @@ def get_XY_loaders(X, Y,
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+
     if verbose==1:
         print(f"Train dataset size: X: ({num_train}, {input_len}, {input_channels}); Y: ({num_train}, {output_len}, {output_channels})")
         print(f"Val dataset size: X: ({num_val}, {input_len}, {input_channels}); Y: ({num_val}, {output_len}, {output_channels})")
@@ -256,7 +271,7 @@ def get_XY_loaders(X, Y,
 
 #----------------------------------------------------------------------------------------------------------------------
 
-# 测试中，不完善
+# 测试中，不完善，暂时没用
 def get_XY_with_positional_encoding(mat_paths, input_len, output_len,
             var_names=['ALT', 'ALTR', "TAS", 'GS', 'AOA1', 'AOA2', 'PTCH', 'WS', "WD", 'SAT', 'TAT', 'PI', 'PT'],
             indices=[i for i in range(0,100)],

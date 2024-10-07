@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from .baseclass import TimeSeriesNN
 
 
+
 class CNN(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
@@ -36,38 +37,60 @@ class CNN(TimeSeriesNN):
         x = x.view(-1, self.output_len, self.output_channels) # (batch_size, output_channels*output_len) -> (batch_size, output_len, output_channels)
         return x
 
+
+
 class TCN(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
     Temporal Convolutional Network (TCN)
+    Model architecture inspired by https://github.com/locuslab/TCN/blob/master/TCN/tcn.py
     '''
+    class TCNBlock(nn.Module):
+            '''
+            (batch_size, L, input_channels) -> (batch_size, L, output_channels)
+            '''
+            def __init__(self, input_channels, output_channels, kernel_size, dilation):
+                assert input_channels == output_channels, "The number of input and output channels should be equal"
+                super(TCN.TCNBlock, self).__init__()
+                self.conv = nn.Conv1d(in_channels=input_channels, out_channels=output_channels, kernel_size=kernel_size, dilation=dilation,
+                                      padding='same') # Ensure input length does not change after convolution
+                self.activation = nn.ReLU()
+                self.dropout = nn.Dropout(p=0.1)
+            def forward(self, x): # resnet structure
+                res=self.conv(x)
+                res=self.activation(res)
+                res=self.dropout(res)
+                return x+res
+
     def __init__(self, input_len, output_len, input_channels, output_channels,
                 num_blocks=4,
                 kernel_size=3,
                 hidden_dim=64
                 ):
-        class TCNBlock(nn.Module):
-            def __init__(self, input_channels, output_channels, kernel_size, dilation):
-                super(TCNBlock, self).__init__()
-                self.conv = nn.Conv1d(in_channels=input_channels, out_channels=output_channels, kernel_size=kernel_size, dilation=dilation, padding='same')
-                self.activation = nn.ReLU()
-                self.dropout = nn.Dropout(p=0.1)
-            def forward(self, x):
-                x=self.conv(x)
-                x=self.activation(x)
-                x=self.dropout(x)
-                return x
-
         super().__init__(input_len, output_len, input_channels, output_channels)
-        self.input_conv = nn.Conv1d(in_channels=input_channels, out_channels=hidden_dim, kernel_size=kernel_size, padding='same')
+        self.input_conv = nn.Conv1d(in_channels=input_channels,
+                                    out_channels=hidden_dim,
+                                    kernel_size=kernel_size,
+                                    padding='same')
         self.blocks = nn.ModuleList()
         for i in range(num_blocks):
             dilation = 2 ** i
-            self.blocks.append(TCNBlock(hidden_dim, hidden_dim, kernel_size, dilation))
-        self.output_conv1 = nn.Conv1d(hidden_dim, output_channels, kernel_size=kernel_size, padding='same')
+            self.blocks.append(TCN.TCNBlock(input_channels=hidden_dim,
+                                            output_channels=hidden_dim,
+                                            kernel_size=kernel_size,
+                                            dilation=dilation))
+        # set two more layers to shorten the output length, in order to reduce the number of parameters of the last fully connected layer
+        self.output_conv1 = nn.Conv1d(in_channels=hidden_dim,
+                                        out_channels=output_channels,
+                                        kernel_size=kernel_size,
+                                        padding='same')
         self.output_pool1 = nn.MaxPool1d(kernel_size=2)
-        self.output_conv2 = nn.Conv1d(output_channels, output_channels, kernel_size=kernel_size, padding='same')
+        self.output_conv2 = nn.Conv1d(in_channels=output_channels,
+                                        out_channels=output_channels,
+                                        kernel_size=kernel_size,
+                                        padding='same')
         self.output_pool2 = nn.MaxPool1d(kernel_size=2)
+        # map the output of the last convolutional layer to the final desired output
         self.fc=nn.Linear((input_len//2//2)*output_channels,output_len*output_channels)
 
     def forward(self, x): # x.shape: (batch_size, input_len, input_channels)

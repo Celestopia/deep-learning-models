@@ -1,6 +1,7 @@
 """
 本文件提供了生成随机多元时间序列数据集的函数load_test_data()
 仅供测试用
+暂时没用
 """
 
 import numpy as np
