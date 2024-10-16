@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from reformer_pytorch import LSHSelfAttention
+
 
 
 class ReformerLayer(nn.Module):
@@ -13,6 +13,10 @@ class ReformerLayer(nn.Module):
                  d_values=None, causal=False, bucket_size=4, n_hashes=4):
         super().__init__()
         self.bucket_size = bucket_size
+        try:
+            from reformer_pytorch import LSHSelfAttention
+        except ImportError:
+            raise ImportError("Please install reformer_pytorch to use LSHSelfAttention.")
         self.attn = LSHSelfAttention(
             dim=d_model,
             heads=n_heads,

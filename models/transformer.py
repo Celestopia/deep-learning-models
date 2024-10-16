@@ -13,14 +13,16 @@ class Transformer(TimeSeriesNN):
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
     An Encoder-only vanilla Transformer
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels, 
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 num_layers=6, # Number of encoder layers
                 d_model=64, # dimension of hidden layer
                 nhead=8, # number of heads in multi-head attention
                 dim_feedforward=256, # middle layer dimension in feed-forward network
                 drop_out=0.1, # dropout rate
-                batch_first=True # whether to use batch_size as the first dimension
-                ):
+                batch_first=True, # whether to use batch_size as the first dimension
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
+
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.embedding_layer = nn.Linear(input_channels, d_model) # Token embedding layer
         self.pos_emb=PositionalEmbedding(d_model, max_len=input_len) # Positional embedding layer
@@ -41,20 +43,21 @@ class Transformer(TimeSeriesNN):
         return x
 
 
-# 定义iTransformer模型
 class iTransformer(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
     An Encoder-only iTransformer
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels, 
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args, 
                 num_layers=6, # Number of encoder layers
                 d_model=64, # dimension of hidden layer
                 nhead=8, # number of heads in multi-head attention
                 dim_feedforward=256, # middle layer dimension in feed-forward network
                 drop_out=0.1, # dropout rate
-                batch_first=True # whether to use batch_size as the first dimension
-                ):
+                batch_first=True, # whether to use batch_size as the first dimension
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
+        
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.embedding_layer = nn.Linear(input_len, d_model) # Token embedding layer
         self.pos_emb=PositionalEmbedding(d_model, max_len=input_len) # Positional embedding layer
@@ -76,21 +79,24 @@ class iTransformer(TimeSeriesNN):
         return x
 
 
+
 class PatchTST(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
     An Encoder-only PatchTST
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels, 
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 num_layers=6, # Number of encoder layers
                 d_model=64, # dimension of hidden layer
                 nhead=8, # number of heads in multi-head attention
                 dim_feedforward=256, # middle layer dimension in feed-forward network
                 drop_out=0.1, # dropout rate
                 batch_first=True, # whether to use batch_size as the first dimension
-                patch_size=5,
-                patch_stride=1,
-                ):
+                patch_size=5, # the size in time dimension of each patch
+                patch_stride=1, # the stride in time dimension of each patch
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
+
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.embedding_layer = ConvEmbedding(input_channels, d_model, kernel_size=patch_size, stride=patch_stride) # Token embedding layer
         self.pos_emb = PositionalEmbedding(d_model, max_len=input_len) # Positional embedding layer
@@ -111,7 +117,8 @@ class PatchTST(TimeSeriesNN):
         return x
 
 
-# 暂时能跑，不要动
+
+# 暂时能跑，不要动 # can run, don't modify
 class Reformer(TimeSeriesNN):
     """
     Reformer with O(LlogL) complexity
@@ -119,7 +126,7 @@ class Reformer(TimeSeriesNN):
     Source: https://github.com/thuml/iTransformer/blob/main/model/Reformer.py
     """
 
-    def __init__(self, input_len, output_len, input_channels, output_channels, label_len, # Start token length
+    def __init__(self, input_len, output_len, input_channels, output_channels, label_len, *args,
                     num_layers=6, # Number of encoder layers
                     d_model=64, # dimension of hidden layer
                     nhead=8, # number of heads in multi-head attention
@@ -127,11 +134,19 @@ class Reformer(TimeSeriesNN):
                     drop_out=0.1, # dropout rate
                     batch_first=True, # whether to use batch_size as the first dimension
                     bucket_size=4,
-                    n_hashes=4
-                    ):
+                    n_hashes=4,
+                    **kwargs
+                    ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         """
-        bucket_size: int,
-        n_hashes: int,
+        (Make sure your screen is wide enough to display the annotation below correctly)
+
+                         |<----------input_len------------------->|
+        Input sequence:  ├────────────────────────────────────────┤
+        Label sequence:                          ├────────────────┤
+        Target sequence:                         ├───────────────────────────────────────────────┤
+                                                 |<--label_len--->|<----------pred_len---------->|
+                                                 |<-----------------output_len------------------>|
+        Time axis------------------------------------------------------------------------------------------->
         """
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.label_len=label_len
@@ -168,10 +183,10 @@ class Reformer(TimeSeriesNN):
         enc_out = self.data_emb(x)+self.pos_emb(x)  # [B,T,C]
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
         dec_out = self.projection(enc_out)
-        return dec_out[:, -self.pred_len:, :]  # (batch_size, output_len, output_channels)
+        return dec_out # (batch_size, output_len, output_channels)
 
 
-# 暂时能跑，不要动
+# 暂时能跑，不要动 # can run, don't modify
 class Informer(TimeSeriesNN):
     """
     Informer with Propspare attention in O(LlogL) complexity
@@ -179,14 +194,26 @@ class Informer(TimeSeriesNN):
     Source: https://github.com/thuml/iTransformer/blob/main/model/Informer.py
     """
 
-    def __init__(self, input_len, output_len, input_channels, output_channels, label_len, # Start token length
+    def __init__(self, input_len, output_len, input_channels, output_channels, label_len, *args,
                     num_layers=6, # Number of encoder layers
                     d_model=64, # dimension of hidden layer
                     nhead=8, # number of heads in multi-head attention
                     dim_feedforward=256, # middle layer dimension in feed-forward network
                     drop_out=0.1, # dropout rate
                     batch_first=True, # whether to use batch_size as the first dimension
-                    ):
+                    **kwargs
+                    ): # For compatibility, we allow extra arguments here, but be sure they are not used.
+        """
+        (Make sure your screen is wide enough to display the annotation below correctly)
+
+                         |<----------input_len------------------->|
+        Input sequence:  ├────────────────────────────────────────┤
+        Label sequence:                          ├────────────────┤
+        Target sequence:                         ├───────────────────────────────────────────────┤
+                                                 |<--label_len--->|<----------pred_len---------->|
+                                                 |<-----------------output_len------------------>|
+        Time axis------------------------------------------------------------------------------------------->
+        """
         super(Informer, self).__init__(input_len, output_len, input_channels, output_channels)
         self.label_len = label_len
         self.pred_len=output_len-label_len
@@ -246,4 +273,4 @@ class Informer(TimeSeriesNN):
         dec_out = self.dec_embedding(x_dec)+self.pos_emb(x_dec)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
         dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)
-        return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+        return dec_out # (batch_size, output_len, output_channels)

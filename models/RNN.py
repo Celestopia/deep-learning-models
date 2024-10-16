@@ -7,14 +7,18 @@ from .baseclass import TimeSeriesNN
 class RNN(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
+    A simple RNN
+    pass `bidirectional=True` to use bidirectional RNN
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels,
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 hidden_size=16,
-                bidirectional=False
-                ):
+                num_layers=3,
+                bidirectional=False,
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.rnn = nn.RNN(input_size=input_channels, hidden_size=hidden_size,
-                        num_layers=3,
+                        num_layers=num_layers,
                         batch_first=True,
                         bidirectional=bidirectional
                         )
@@ -32,14 +36,17 @@ class RNN(TimeSeriesNN):
 class LSTM(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
+    pass `bidirectional=True` to use bidirectional LSTM
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels,
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 hidden_size=16,
-                bidirectional=False
-                ):
+                num_layers=3,
+                bidirectional=False,
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.lstm = nn.LSTM(input_size=input_channels, hidden_size=hidden_size,
-                            num_layers=3,
+                            num_layers=num_layers,
                             batch_first=True,
                             bidirectional=bidirectional
                             )
@@ -57,14 +64,17 @@ class LSTM(TimeSeriesNN):
 class GRU(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
+    pass `bidirectional=True` to use bidirectional GRU
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels,
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 hidden_size=16,
-                bidirectional=False
-                ):
+                num_layers=3,
+                bidirectional=False,
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.gru = nn.GRU(input_size=input_channels, hidden_size=hidden_size,
-                        num_layers=3,
+                        num_layers=num_layers,
                         batch_first=True,
                         bidirectional=bidirectional
                         )

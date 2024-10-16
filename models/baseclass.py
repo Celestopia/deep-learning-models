@@ -3,9 +3,11 @@ import torch.nn as nn
 
 
 # Base class for time series neural network models
+# 时序模型的基类
 class TimeSeriesNN(nn.Module):
     '''
-    (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
+    Input shape: (batch_size, input_len, input_channels)
+    Output shape: (batch_size, output_len, output_channels)
     The overall architecture is direct multistep (DMS), rather than iterated multi-step (IMS). That is, directly predicting T future time steps (T>1).
     Usually input_channels == output_channels, but for generalizability, we set them separately.
     '''
@@ -24,9 +26,41 @@ class TimeSeriesNN(nn.Module):
     def evaluate(self, data,
                 loss=nn.functional.mse_loss,
                 mode='data_loader',
-                device='cpu'
+                device='cpu', # note that the default device is 'cpu'
+                verbose=1
                 ):
-        if mode == 'numpy': # If mode is 'numpy', data should be a tuple of numpy arrays
+        """
+        Return: loss on the given dataset
+        """
+        if mode == 'data_loader': # If mode is 'data_loader', data should be a DataLoader object
+            '''
+            data: DataLoader object
+            '''
+            data_loader = data
+            self.eval()  # switch to evaluation mode
+            total_loss = 0.0
+
+            if verbose==1:
+                try:
+                    import tqdm
+                except ImportError:
+                    raise ImportError("Please install tqdm to use progress bars.\nCommand: conda install tqdm")
+                import tqdm
+                with torch.no_grad():
+                    for inputs, targets in tqdm.tqdm(data_loader): # inputs: (batch_size, input_len, input_channels), targets: (batch_size, output_len, output_channels)
+                        inputs, targets = inputs.to(device), targets.to(device) # Transfer data to GPU (if available)
+                        outputs = self(inputs)
+                        total_loss += loss(outputs, targets).item() * inputs.size(0)
+                return total_loss / len(data_loader.dataset)
+            elif verbose==0:
+                with torch.no_grad():
+                    for inputs, targets in data_loader: # inputs: (batch_size, input_len, input_channels), targets: (batch_size, output_len, output_channels)
+                        inputs, targets = inputs.to(device), targets.to(device) # Transfer data to GPU (if available)
+                        outputs = self(inputs)
+                        total_loss += loss(outputs, targets).item() * inputs.size(0)
+                return total_loss / len(data_loader.dataset)
+        
+        elif mode == 'numpy': # If mode is 'numpy', data should be a tuple of numpy arrays
             '''
             data: (inputs, targets)
             - inputs: (batch_size, input_len, input_channels)
@@ -44,18 +78,3 @@ class TimeSeriesNN(nn.Module):
                 outputs = self(inputs)
                 result = loss(outputs, targets).item()
                 return result
-        
-        elif mode == 'data_loader': # If mode is 'data_loader', data should be a DataLoader object
-            '''
-            data: DataLoader object
-            '''
-            import tqdm
-            data_loader = data
-            self.eval()  # switch to evaluation mode
-            total_loss = 0.0
-            with torch.no_grad():
-                for inputs, targets in tqdm.tqdm(data_loader):
-                    inputs, targets = inputs.to(device), targets.to(device) # 将数据转移到GPU（如果可用）
-                    outputs = self(inputs)
-                    total_loss += loss(outputs, targets).item() * inputs.size(0)
-            return total_loss / len(data_loader.dataset)

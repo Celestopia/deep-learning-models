@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from .baseclass import TimeSeriesNN
-from blitz.utils import variational_estimator # 需要安装库：conda install -c conda-forge blitz-bayesian-pytorch
+from blitz.utils import variational_estimator # Need to install blitz-bayesian-pytorch：conda install -c conda-forge blitz-bayesian-pytorch
 
 
 @variational_estimator
@@ -11,10 +11,11 @@ class BNN_conv1d(TimeSeriesNN):
     '''
     (batch_size, input_len, input_channels) -> (batch_size, output_len, output_channels)
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels,
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
                 kernel_size=3,
-                padding=1
-                ):
+                padding=1,
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         try:
             from blitz.modules import BayesianLinear, BayesianConv1d
         except ImportError:
@@ -26,7 +27,7 @@ class BNN_conv1d(TimeSeriesNN):
         self.output_channels = output_channels
         self.conv1 = BayesianConv1d(in_channels=input_channels, out_channels=input_channels ,kernel_size=kernel_size, padding=padding)
         self.conv2 = BayesianConv1d(in_channels=input_channels, out_channels=input_channels ,kernel_size=kernel_size, padding=padding)
-        self.fc=BayesianLinear(in_features=input_channels*(input_len//4), out_features=output_channels*output_len)
+        self.fc=BayesianLinear(in_features=input_channels*(input_len//2//2), out_features=output_channels*output_len)
     
     def forward(self, x):
         x = x.permute(0, 2, 1) # (batch_size, input_len, input_channels) -> (batch_size, input_channels, input_len)
@@ -45,7 +46,7 @@ class BNN_conv1d(TimeSeriesNN):
                 ):
         '''
         input: (batch_size, input_len, input_channels)
-        使用蒙特卡洛方法对同一输入进行预测，返回预测结果的均值和方差
+        Use Monte Carlo method to predict on the same input, and return the mean and variance of the predicted results.
         '''
         import tqdm
         assert input.dim()==3

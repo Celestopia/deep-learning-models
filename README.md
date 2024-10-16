@@ -1,5 +1,5 @@
 > 目前所有模型均能跑，但代码复用性仍待提升，注释仍待补充。
-> scripts目录下有一些运行实例
+> scripts目录下有一些运行实例，设置好文件路径后可以直接运行。
 
 # deep-learning-models
 Data-driven time series prediction models for personal study.
@@ -41,6 +41,6 @@ Time axis-----------------------------------------------------------------------
 
 大部分模型都不需要解码器输入，直接替换即可使用，但需要解码器输入的模型（Reformer、Informer）还需传入label_len参数。
 
-对于不需要解码器输入的模型，模型的输入形状为
-`(batch_size, input_len, input_channels)`，输出形状为`(batch_size, output_len, output_channels)`；对于需要解码器输入的模型，模型的输入形状为
-`(batch_size, input_len, input_channels)`，输出形状为`(batch_size, pred_len, output_channels)`。
+模型的输入形状为`(batch_size, input_len, input_channels)`，输出形状为`(batch_size, output_len, output_channels)`。
+
+注意对于需要解码器输入的模型，仅后`pred_len`个时间步为预测，而前`label_len`个时间步为标签。若想得到预测序列，还需对模型输出进行切片。

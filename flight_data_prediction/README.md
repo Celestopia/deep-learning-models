@@ -24,6 +24,6 @@ Data_Download
 ```
 例如，如果你的数据文件夹的绝对路径是`D:\Data\Data_Download`，则可以将`data_preprocessing.get_mat_paths()`函数的路径参数设置为`D:\\Data\\Data_Download`，亦即`mat_paths=data_preprocessing.get_mat_paths('D:\\Data\\Data_Download')`。
 
-注意本项目并非可复用性高的成熟项目，其中函数的实现主要针对于本特定数据集，仅供测试用。
+注意本项目并非可复用性高的成熟项目，其中函数的实现主要针对于本特定数据集，仅供测试与学习用。
 
 

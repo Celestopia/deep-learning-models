@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 
 
+
 class PositionalEmbedding(nn.Module):
     '''
     (batch_size, seq_len, d_model) -> (batch_size, seq_len, d_model)

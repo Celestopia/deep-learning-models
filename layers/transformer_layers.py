@@ -3,6 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+'''
+Source:
+https://github.com/thuml/iTransformer/blob/main/layers/SelfAttention_Family.py
+https://github.com/thuml/iTransformer/blob/main/layers/Transformer_EncDec.py
+'''
 
 class ConvLayer(nn.Module):
     def __init__(self, c_in):

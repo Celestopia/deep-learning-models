@@ -9,7 +9,10 @@ class MLP(TimeSeriesNN):
     A 3-layer MLP with ReLU activation, max pooling, and dropout.
     Many parameters
     '''
-    def __init__(self, input_len, output_len, input_channels, output_channels):
+    def __init__(self, input_len, output_len, input_channels, output_channels, *args,
+                dropout=0.2,
+                **kwargs
+                ): # For compatibility, we allow extra arguments here, but be sure they are not used.
         super().__init__(input_len, output_len, input_channels, output_channels)
         self.fc1 = nn.Linear(input_len*input_channels, 256)
         self.fc2 = nn.Linear(128, 64)
