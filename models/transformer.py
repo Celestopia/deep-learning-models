@@ -179,7 +179,7 @@ class Reformer(TimeSeriesNN):
         # y shape: (batch_size, output_len, output_channels)
         # input_channels == output_channels
         assert x.shape[2] == y.shape[2], "Input and output channels must be equal"
-        x = torch.cat([x, y[:, -self.output_len:, :]], dim=1)
+        x = torch.cat([x, y[:, -self.pred_len:, :]], dim=1)
         enc_out = self.data_emb(x)+self.pos_emb(x)  # [B,T,C]
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
         dec_out = self.projection(enc_out)

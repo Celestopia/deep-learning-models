@@ -45,11 +45,25 @@ class TimeSeriesNN(nn.Module):
                     import tqdm
                 except ImportError:
                     raise ImportError("Please install tqdm to use progress bars.\nCommand: conda install tqdm")
-                import tqdm
                 with torch.no_grad():
                     for inputs, targets in tqdm.tqdm(data_loader): # inputs: (batch_size, input_len, input_channels), targets: (batch_size, output_len, output_channels)
                         inputs, targets = inputs.to(device), targets.to(device) # Transfer data to GPU (if available)
-                        outputs = self(inputs)
+                        if hasattr(self, 'label_len') and self.label_len > 0:
+                            # If the model has `label_len` attribute, decoder input is needed, and label should be taken into consideration
+                            # 如果模型含有label_len属性，说明前向传播过程需要解码器输入，训练过程考虑label
+                            dec_inp = torch.cat([
+                                    targets[:, :self.label_len, :],
+                                    torch.zeros_like(targets[:, -self.pred_len:, :]).float().to(device)
+                                    ],
+                                    dim=1
+                                    ).float().to(device) # Use targets as decoder input in the first `label_len` time steps, and zeros for the rest
+                            outputs = self(inputs, dec_inp)
+                            outputs = outputs[:, -self.pred_len:, :].to(device) # Only take the last `pred_len` time steps # 取待预测时间范围内的数据
+                            targets = targets[:, -self.pred_len:, :].to(device) # Only take the last `pred_len` time steps # 取待预测时间范围内的数据
+                        else:
+                            # If the model doesn't have `label_len` attribute, the decoder input is not needed
+                            # 如果模型不含有label_len属性，说明前向传播过程不需要解码器输入
+                            outputs = self(inputs)
                         total_loss += loss(outputs, targets).item() * inputs.size(0)
                 return total_loss / len(data_loader.dataset)
             elif verbose==0:

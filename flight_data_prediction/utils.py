@@ -61,7 +61,16 @@ class FitHistory:
         print(f'Training metric:   {self.train_metric[-1]:.4f}')
         print(f'Validation loss:   {self.val_loss[-1]:.4f}')
         print(f'Validation metric: {self.val_metric[-1]:.4f}')
-
+    
+    def df(self):
+        import pandas as pd
+        df=pd.DataFrame({'epoch':np.arange(self.num_epochs),
+                         'epoch_time':self.epoch_time,
+                         'train_loss':self.train_loss,
+                         'train_metric':self.train_metric,
+                         'val_loss':self.val_loss,
+                         'val_metric':self.val_metric})
+        return df
 
 
 def train(MODEL, train_loader, val_loader, optimizer,
@@ -298,7 +307,7 @@ def plot_predictions(MODEL, X_grouped, Y_grouped, var_names, mat_paths,
                             dim=1
                             ).float().to(device)
         Y_to_predict=Y_to_predict[:, -pred_len:, :] # Only take the last `pred_len` time steps # 取待预测时间范围内的数据
-        Y_predicted=MODEL(X_to_predict, dec_inp)
+        Y_predicted=MODEL(X_to_predict, dec_inp)[:, -pred_len:, :] # Only take the last `pred_len` time steps # 取待预测时间范围内的数据
     output_channels=Y_predicted.size(2)
     Y_predicted_flatten=Y_predicted.contiguous().view(-1,output_channels).detach().cpu().numpy()
     Y_to_predict_flatten=Y_to_predict.contiguous().view(-1,output_channels).detach().cpu().numpy()
